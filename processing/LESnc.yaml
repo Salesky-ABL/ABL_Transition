@@ -1,0 +1,75 @@
+# ----------------------------------------------------------------
+# Name: LESnc.yaml
+# Author: Brian R. Greene, Edited for use by Robert M. Frost
+# University of Oklahoma
+# Created: 15 March 2022
+# Purpose: parameters for use in LESnc.py 
+# and timeseries.ipynb
+# ----------------------------------------------------------------
+# flag to run sim2netcdf when running LESnc as script
+run_sim2netcdf: True
+# flag to run calc_stats when running LESnc as script
+run_calc_stats: False
+# flag to run timeseries2netcdf when running LESnc as script
+run_timeseries: False
+# flag to run calc_stats_tz when running LESnc as script
+run_calc_stats_tz: True
+
+# simulation resolution
+res: 160
+# simulation directory name
+sim: "abl_transition/linear_1/"
+# directory for raw simulation output
+dout: "/home/rfrost/simulations/"
+# directory for netcdf files to be saved or read
+dnc: "/home/rfrost/sim_output/"
+# name of stats file to be saved
+fstats: "average_statistics_tz.nc"
+# name of timeseries file to be saved
+fts: "timeseries_all.nc"
+
+# start and end timesteps to read
+t0: 288000
+t1: 1296000
+# final timestep for timeseries NOTE: != t1
+tf: 1269000
+# output file frequency in timesteps
+dt: 1000
+# dimensional timestep in seconds
+delta_t: 0.05
+# total physical averaging time
+tavg: "8h"
+
+# simulation domain sizes in meters
+Lx: 12000.0
+Ly: 12000.0
+Lz: 2000.0
+# dimensional scales for velocity and temperature
+uscale: 0.4
+Tscale: 300
+# denote whether reading in dissip
+use_dissip: False
+# variable attributes to loop over and save into netcdf files
+var_attrs:
+    u:
+        units: "m/s"
+    v:
+        units: "m/s"
+    w:
+        units: "m/s"
+    theta:
+        units: "K"
+    txz:
+        units: "m^2/s^2"
+    tyz:
+        units: "m^2/s^2"
+    q3:
+        units: "K m/s"
+    dissip:
+        units: "m^2/s^3"
+    x:
+        units: "m"
+    y:
+        units: "m"
+    z:
+        units: "m"
