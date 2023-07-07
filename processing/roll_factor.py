@@ -13,13 +13,7 @@ sys.path.append("/home/rfrost/LES-utils/")
 from spec import autocorr_2d
 import xarray as xr
 import numpy as np
-import matplotlib as mpl
-import cmocean
 import yaml
-from matplotlib.ticker import MultipleLocator
-from LESutils import load_full
-from matplotlib import pyplot as plt
-from matplotlib import rc
 from dask.diagnostics import ProgressBar
 # ---------------------------------
 # Read in settings
