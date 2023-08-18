@@ -108,14 +108,13 @@ def calc_stats_tran(dnc, t0, t1, dt, delta_t):
 def polar_grid(df, dnc, height, Lx, ntbin, nrbin):
     """Interpolate 2D autocorrelation to polar grid
     
-    :param Dataset df: 4d (time,x,y,z) xarray Dataset for calculating
+    :param Dataset df: 4d (time,x,y,z) xarray Dataset
     :param str dnc: absolute path to directory for saving output netCDF files
     :param float height: dimensionless height to be rotated
     :param float Lx: Size of horizontal domain in meters
     :param int ntbin: number of angular bins
     :param int nrbin: number of radial bins
     """
-
     # calculate t'w'
     df["tw_cov_res"] = xr.cov(df.theta, df.w, dim=("x", "y")).compute()
     # calculate zi
@@ -127,6 +126,8 @@ def polar_grid(df, dnc, height, Lx, ntbin, nrbin):
 
     # read in autocorrelation dataset
     R = xr.open_dataset(f"{dnc}R_2d.nc")
+    # rolling average
+    R = R.rolling(time=6).mean()
     # calculate 2d arrays of theta=theta(x,y), r=r(x,y)
     theta = np.arctan2(R.y, R.x)
     r = (R.x**2. + R.y**2.) ** 0.5
@@ -151,7 +152,7 @@ def polar_grid(df, dnc, height, Lx, ntbin, nrbin):
                 count[t,jt,jr] += 1
     # set up dimensial array for wmean
     wmean = np.zeros((R.time.size, ntbin, nrbin))
-    for t in range(0, R.time.size):
+    for t in range(R.time.size):
         # normalize wall by count
         wmean[t,:,:] = wall[t,:,:] / count[t,:,:]
 
@@ -188,7 +189,7 @@ def roll_factor(dnc, height, stats):
 
     print("Calculating roll factor")
     # set up dimensial array for wmean
-    wmean = np.zeros((time.size, theta.size, r.size))
+    wmean = w_pol.values
     # loop over time
     for jt in range(0, time.size):
         # calculate roll factor
@@ -214,7 +215,7 @@ def roll_factor(dnc, height, stats):
 # Calculate integral length scales
 # ---------------------------------
 def length_scales(dnc, t0, t1, dt, height):
-    """Calculate integral length scales along alpha and alpha+pi/2
+    """Calculate integral length scales normal to and along alpha
 
     :param str dnc: absolute path to directory for saving output netCDF files
     :param int t0: first timestep for stats to be computed
@@ -228,43 +229,65 @@ def length_scales(dnc, t0, t1, dt, height):
 
     # read in polar autocorrelation
     Rww = xr.open_dataarray(f"{dnc}R_pol_zzi{int(h*100)}.nc")
-    # number of theta and r lags
-    ntheta = Rww.theta.size
-    nr = Rww.r.size
+
+    # fill nans with zeros
+    Rww = Rww.fillna(0)
 
     # import stats
     s = xr.open_dataset(f"{dnc}{t0}_{t1}_stats.nc")
     # number of time points
     ntime = int((t1 - t0) / dt + 1)
 
+    # array to hold indicies of z/zi
     jz = np.zeros(ntime)
+    # loop over time
     for jt in range(ntime):
         # find jz for defined z/zi
         jz[jt] = abs(s.z/s.zi[jt] - h).argmin()
-    # calculate mean wind angle
+
+    # array to hold alpha indices
     alpha = np.zeros(ntime)
+    # loop over time
     for jt in range(ntime):
+        # calculate mean wind angle
         alpha[jt] = np.arctan2(s.v_mean[jt,int(jz[jt])], s.u_mean[jt,int(jz[jt])])
-    # find angular lag closest to alpha
+
+    # arrays to hold indices of angular lags
     ja, ja2 = [np.zeros(ntime) for _ in range(2)]
+    # loop over time
     for jt in range(ntime):
+        # find angular lag closest to alpha and normal
         ja[jt] = abs(Rww.theta - alpha[jt]).argmin()
         ja2[jt] = abs(Rww.theta - (alpha[jt] + np.pi/2)).argmin()
-    
-    # find the indice of the first zero
-    tazero, ta2zero = [np.zeros(ntime) for _ in range(2)]
-    for jt in range(ntime):
-        tazero[jt] = np.where(Rww.isel(time=jt, theta=int(ja[jt])) < 0)[0][0] + 1
-        ta2zero[jt] = np.where(Rww.isel(time=jt, theta=int(ja2[jt])) < 0)[0][0] + 1
 
-    # calculate length scale along alpha
+    # arrays to hold indice of first negative value
+    tazero, ta2zero = [np.zeros(ntime) for _ in range(2)]
+    # loop over time
+    for jt in range(ntime):
+        # find the indice of the first zero
+        ta_array = np.where(Rww.isel(time=jt, theta=int(ja[jt])) < 0)[0]
+        ta2_array = np.where(Rww.isel(time=jt, theta=int(ja2[jt])) < 0)[0]
+        # exclude timesteps where all values are positive
+        if len(ta_array) > 0:
+            tazero[jt] = ta_array[0]
+        if len(ta2_array) > 0:
+            ta2zero[jt] = ta2_array[0]
+    
+    # load data into memory
+    Rww.load()
+
+    # array for length scale along alpha
     Lwa = np.zeros((Rww.time.size))
+    # loop over time
     for jt in range(Rww.time.size):
+        # calculate length scale along alpha
         Lwa[jt] = Rww.isel(time=jt, r=range(0,int(tazero[jt])), theta=int(ja[jt])).integrate("r")
 
-    # calculate length scale along alpha + pi/2
+    # array for length scale normal to alpha
     Lwa2 = np.zeros((Rww.time.size))
+    # loop over time
     for jt in range(Rww.time.size):
+        # calculate length scale normal to alpha
         Lwa2[jt] = Rww.isel(time=jt, r=range(0,int(ta2zero[jt])), theta=int(ja2[jt])).integrate("r")
 
     # back to xarray
@@ -275,6 +298,10 @@ def length_scales(dnc, t0, t1, dt, height):
         coords=dict(
             time=Rww.time)
         )
+
+    # replace zeroes with NaN
+    Lw = Lw.where(Lw != 0, np.nan)
+
     # save out data
     fsave = f"{dnc}{t0}_{t1}_length_scale.nc"
     Lw.to_netcdf(fsave, mode="w")

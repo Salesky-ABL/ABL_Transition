@@ -18,9 +18,9 @@ from tranutils import calc_stats_tran, polar_grid, roll_factor, length_scales
 # --------------------------------- 
 
 # directory for raw simulation output
-dout = "/share/temp/rfrost/sims/full_step_9/output/"
+dout = "/home/rfrost/simulations/abl_transition/full_step_9/output/"
 # directory for netCDF files to be read then saved
-dnc = "/home/rfrost/sim_output/abl_transition/step_change_3/"
+dnc = "/home/rfrost/simulations/nc/full_step_9/"
 # simulation resolution
 nx = 160
 ny = 160
@@ -33,13 +33,13 @@ Lz = 2000
 scales = [0.4, 300]
 # start and end timesteps to be read in
 t0 = 576000
-t1 = 720000
+t1 = 1152000
 # output frequency in timesteps
 dt = 1000
 # temporal resolution in seconds
 delta_t = 0.05
 # label for simulation files
-simlabel = "step_change_3"
+simlabel = "full_step_9"
 # dimensionless height
 height = 0.25
 
@@ -50,11 +50,11 @@ stats = False
 # flag to calculate 2D autocorrelation or not
 autocorr = False
 # flag to convert to polar coordiantes
-polar = True
+polar = False
 # flag to calculate roll factor
 roll = False
 # flag to calculate integral length scales
-length = False
+length = True
 
 # number of angular and radial bins (angular bins must be odd number)
 ntbin = 21
@@ -67,7 +67,8 @@ nrbin = 20
 # sim2netcdf
 if netcdf:
     print("Begin sim2netcdf...")
-    sim2netcdf(dout, dnc, (nx,ny,nz), (Lx,Ly,Lz), scales, t0, t1, dt, False, simlabel)
+    sim2netcdf(dout, dnc, (nx,ny,nz), (Lx,Ly,Lz), scales, t0, t1, dt, 
+               use_dissip=False, use_q=False, simlabel=simlabel)
     print("Finished sim2netcdf!")
 
 # calc_stats_tran
@@ -92,10 +93,8 @@ if polar:
     print("Begin polar_grid...")
     # load in volumetric output
     df = load_full(dnc, t0, t1, dt, delta_t)
-    # rolling mean
-    df_roll = df.rolling(time=6).mean()
     # rotate coordinates of autocorr
-    polar_grid(df_roll, dnc, height, Lx, ntbin, nrbin)
+    polar_grid(df, dnc, height, Lx, ntbin, nrbin)
     print("Finished polar_grid (finally)!")
 
 # roll_factor
