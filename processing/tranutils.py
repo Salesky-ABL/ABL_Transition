@@ -105,7 +105,7 @@ def calc_stats_tran(dnc, t0, t1, dt, delta_t):
 # ---------------------------------
 # Convert to polar coords
 # --------------------------------- 
-def polar_grid(df, dnc, height, Lx, ntbin, nrbin):
+def polar_grid(df, dnc, height, Lx, ntbin, nrbin, avg_method, avg_time=6):
     """Interpolate 2D autocorrelation to polar grid
     
     :param Dataset df: 4d (time,x,y,z) xarray Dataset
@@ -114,6 +114,8 @@ def polar_grid(df, dnc, height, Lx, ntbin, nrbin):
     :param float Lx: Size of horizontal domain in meters
     :param int ntbin: number of angular bins
     :param int nrbin: number of radial bins
+    :param int avg_method: 0 = no average, 1 = rolling average, 2 = coarsen
+    :param int avg_time: number of timesteps to average over (6 step default)
     """
     # calculate t'w'
     df["tw_cov_res"] = xr.cov(df.theta, df.w, dim=("x", "y")).compute()
@@ -126,8 +128,13 @@ def polar_grid(df, dnc, height, Lx, ntbin, nrbin):
 
     # read in autocorrelation dataset
     R = xr.open_dataset(f"{dnc}R_2d.nc")
-    # rolling average
-    R = R.rolling(time=6).mean()
+
+    # average if desired
+    if avg_method == 1:
+        R = R.rolling(time=avg_time).mean()
+    if avg_method == 2:
+        R = R.coarsen(time=avg_time, boundary="trim").mean()
+    
     # calculate 2d arrays of theta=theta(x,y), r=r(x,y)
     theta = np.arctan2(R.y, R.x)
     r = (R.x**2. + R.y**2.) ** 0.5
@@ -138,7 +145,6 @@ def polar_grid(df, dnc, height, Lx, ntbin, nrbin):
     # intiialize empty arrays for storing values and counter for normalizing
     wall, count = [np.zeros((R.time.size, ntbin, nrbin), dtype=np.float64) for _ in range(2)]
 
-    print("Rotating to polar coordinates")
     # loop over x, y pairs
     for jx in range(nx):
         for jy in range(ny):
@@ -150,6 +156,8 @@ def polar_grid(df, dnc, height, Lx, ntbin, nrbin):
                 # store w[jt,jr] in wall, increment count
                 wall[t,jt,jr] += w[jx,jy]
                 count[t,jt,jr] += 1
+                print(f"Finished timestep {t}")
+
     # set up dimensial array for wmean
     wmean = np.zeros((R.time.size, ntbin, nrbin))
     for t in range(R.time.size):
@@ -160,23 +168,39 @@ def polar_grid(df, dnc, height, Lx, ntbin, nrbin):
     w_pol = xr.DataArray(data=wmean,
                         coords=dict(time=R.time, theta=tbin, r=rbin),
                         dims=["time", "theta", "r"])
+    # set file path for output
+    if avg_method == 0:
+        dout = f"{dnc}R_pol_zzi{int(height*100)}.nc"
+    if avg_method == 1:
+        dout = f"{dnc}R_pol_zzi{int(height*100)}_rolling{avg_time}.nc"
+    if avg_method == 2:
+        dout = f"{dnc}R_pol_zzi{int(height*100)}_coarsen{avg_time}.nc"
     # output polar Rww data
-    w_pol.to_netcdf(f"{dnc}R_pol_zzi{int(height*100)}.nc")
+    print(f"Saving to {dout}")
+    w_pol.to_netcdf(dout)
     return
 
 # ---------------------------------
 # Calculate roll factor timeseries
 # --------------------------------- 
-def roll_factor(dnc, height, stats):
+def roll_factor(dnc, height, stats, avg_method, avg_time=6):
     """Calculate roll factor using polar grid autocorrelation of w
     
     :param Dataset stats: output from calc_stats_tran
     :param str dnc: absolute path to directory for saving output netCDF files
     :param float height: dimensionless height
+    :param int avg_method: 0 = no average, 1 = rolling average, 2 = coarsen
+    :param int avg_time: number of timesteps to average over (6 step default)
     """
 
     # read in polar autocorrelation
-    w_pol = xr.open_dataarray(f"{dnc}R_pol_zzi{int(height*100)}.nc")
+    if avg_method == 0:
+        w_pol = xr.open_dataarray(f"{dnc}R_pol_zzi{int(height*100)}.nc")
+    if avg_method == 1:
+        w_pol = xr.open_dataarray(f"{dnc}R_pol_zzi{int(height*100)}_rolling{avg_time}.nc")
+    if avg_method == 2:
+        w_pol = xr.open_dataarray(f"{dnc}R_pol_zzi{int(height*100)}_coarsen{avg_time}.nc")
+
     # set parameters for calculation
     time = w_pol.time
     theta = w_pol.theta
@@ -203,7 +227,13 @@ def roll_factor(dnc, height, stats):
                         dims=["time"])
     
     # save data
-    fsave = f"{dnc}rollfactor_zzi{int(height*100)}_raw.nc"
+    if avg_method == 0:
+        fsave = f"{dnc}rollfactor_zzi{int(height*100)}.nc"
+    if avg_method == 1:
+        fsave = f"{dnc}rollfactor_zzi{int(height*100)}_rolling{avg_time}.nc"
+    if avg_method == 2:
+        fsave = f"{dnc}rollfactor_zzi{int(height*100)}_coarsen{avg_time}.nc"
+
     # output to netCDF
     print(f"Saving file: {fsave}")
     with ProgressBar():
@@ -214,7 +244,7 @@ def roll_factor(dnc, height, stats):
 # ---------------------------------
 # Calculate integral length scales
 # ---------------------------------
-def length_scales(dnc, t0, t1, dt, height):
+def length_scales(dnc, t0, t1, dt, height, avg_method, avg_time=6):
     """Calculate integral length scales normal to and along alpha
 
     :param str dnc: absolute path to directory for saving output netCDF files
@@ -222,13 +252,20 @@ def length_scales(dnc, t0, t1, dt, height):
     :param int t1: final timestep for stats to be computed
     :param int dt: number of timesteps between files to load
     :param float height: dimensionless height
+    :param int avg_method: 0 = no average, 1 = rolling average, 2 = coarsen
+    :param int avg_time: number of timesteps to average over (6 step default)
     """
 
     # z/zi value to be plotted
     h = height
 
     # read in polar autocorrelation
-    Rww = xr.open_dataarray(f"{dnc}R_pol_zzi{int(h*100)}.nc")
+    if avg_method == 0:
+        Rww = xr.open_dataarray(f"{dnc}R_pol_zzi{int(h*100)}.nc")
+    if avg_method == 1:
+        Rww = xr.open_dataarray(f"{dnc}R_pol_zzi{int(h*100)}_rolling{avg_time}.nc")
+    if avg_method == 2:
+        Rww = xr.open_dataarray(f"{dnc}R_pol_zzi{int(h*100)}_coarsen{avg_time}.nc")
 
     # fill nans with zeros
     Rww = Rww.fillna(0)
@@ -236,7 +273,7 @@ def length_scales(dnc, t0, t1, dt, height):
     # import stats
     s = xr.open_dataset(f"{dnc}{t0}_{t1}_stats.nc")
     # number of time points
-    ntime = int((t1 - t0) / dt + 1)
+    ntime = int((t1 - t0) / (dt) + 1) # remove hard coding later
 
     # array to hold indicies of z/zi
     jz = np.zeros(ntime)
@@ -303,6 +340,80 @@ def length_scales(dnc, t0, t1, dt, height):
     Lw = Lw.where(Lw != 0, np.nan)
 
     # save out data
-    fsave = f"{dnc}{t0}_{t1}_length_scale.nc"
+    if avg_method == 0:
+        fsave = f"{dnc}{t0}_{t1}_length_scale_zzi{int(h*100)}.nc"
+    if avg_method == 1:
+        fsave = f"{dnc}{t0}_{t1}_length_scale_zzi{int(h*100)}_rolling{avg_time}.nc"
+    if avg_method == 2:
+        fsave = f"{dnc}{t0}_{t1}_length_scale_zzi{int(h*100)}_coarsen{avg_time}.nc"
+    Lw.to_netcdf(fsave, mode="w")
+    return
+
+# ---------------------------------
+# Calculate rotated integral length scales
+# ---------------------------------
+def ls_rot(dnc, t0, t1, dt):
+    """Calculate integral length scales normal to and along alpha
+    using rotated cartesian dataset
+
+    :param str dnc: absolute path to directory for saving output netCDF files
+    :param int t0: first timestep for stats to be computed
+    :param int t1: final timestep for stats to be computed
+    :param int dt: number of timesteps between files to load
+    """
+
+    # read in rotated autocorrelation
+    Rww = xr.open_dataarray(f"{dnc}R_2d_rot.nc")
+    # remove negative lags
+    Rww = Rww.where(Rww.x >= 0, drop=True)
+    Rww = Rww.where(Rww.y >= 0, drop=True)
+
+    # number of time points
+    ntime = int((t1 - t0) / dt + 1)
+    # number of z levels
+    nz = int(Rww.z.size)
+
+    # arrays to hold indice of first negative value
+    tazero, ta2zero, Lwa, Lwa2 = [np.empty((ntime, nz)) for _ in range(4)]
+
+    # load data into memory
+    Rww.load()
+
+    # loop over time and z
+    for jt in range(ntime):
+        for jz in range(nz):
+            # find the indices of the first zero
+            ta_array = np.where(Rww[jt,:,0,jz] <= 0)[0]
+            ta2_array = np.where(Rww[jt,0,:,jz] <= 0)[0]
+            # exclude nans
+            if ta_array.size > 0:
+                tazero[jt,jz] = ta_array[0]
+            else:
+                tazero[jt,jz] = np.argmin(Rww[jt,:,0,jz].values)
+            if ta2_array.size > 0:
+                ta2zero[jt,jz] = ta2_array[0]
+            else:
+                ta2zero[jt,jz] = np.argmin(Rww[jt,0,:,jz].values)
+
+    # loop over time and z
+    for jt in range(ntime):
+        for jz in range(nz):
+            # calculate length scale along alpha
+            Lwa[jt,jz] = Rww.isel(time=jt, y=0, z=jz, x=range(0,int(tazero[jt,jz]))).integrate("x")
+            # calculate length scale normal to alpha
+            Lwa2[jt,jz] = Rww.isel(time=jt, x=0, z=jz, y=range(0,int(ta2zero[jt,jz]))).integrate("y")
+
+    # back to xarray
+    Lw = xr.Dataset(
+        data_vars=dict(
+            rolls = (["time","z"], Lwa),
+            normal = (["time","z"], Lwa2)),
+        coords=dict(
+            time=Rww.time,
+            z=Rww.z)
+        )
+
+    # save out data
+    fsave = f"{dnc}{t0}_{t1}_length_scale_rot.nc"
     Lw.to_netcdf(fsave, mode="w")
     return
