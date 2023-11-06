@@ -105,7 +105,7 @@ def calc_stats_tran(dnc, t0, t1, dt, delta_t):
 # ---------------------------------
 # Convert to polar coords
 # --------------------------------- 
-def polar_grid(df, dnc, height, Lx, ntbin, nrbin, avg_method, avg_time=6):
+def polar_grid(df, dnc, heights, Lx, ntbin, nrbin):
     """Interpolate 2D autocorrelation to polar grid
     
     :param Dataset df: 4d (time,x,y,z) xarray Dataset
@@ -114,68 +114,111 @@ def polar_grid(df, dnc, height, Lx, ntbin, nrbin, avg_method, avg_time=6):
     :param float Lx: Size of horizontal domain in meters
     :param int ntbin: number of angular bins
     :param int nrbin: number of radial bins
-    :param int avg_method: 0 = no average, 1 = rolling average, 2 = coarsen
-    :param int avg_time: number of timesteps to average over (6 step default)
     """
+    # # calculate t'w'
+    # df["tw_cov_res"] = xr.cov(df.theta, df.w, dim=("x", "y")).compute()
+    # # calculate zi
+    # idx = df.tw_cov_res.argmin(axis=1)
+    # jz = np.zeros(df.time.size)
+    # for jt in range(0, df.time.size):
+    #     # find jz for defined z/zi
+    #     jz[jt] = abs(df.z/df.z[idx].isel(time=jt) - height).argmin()
+
+    # # read in autocorrelation dataset
+    # R = xr.open_dataset(f"{dnc}R_2d.nc")
+    
+    # # calculate 2d arrays of theta=theta(x,y), r=r(x,y)
+    # theta = np.arctan2(R.y, R.x)
+    # r = (R.x**2. + R.y**2.) ** 0.5
+    # # grab sizes of x and y dimensions for looping
+    # nx, ny = R.x.size, R.y.size
+    # rbin = np.linspace(0, Lx//2, nrbin)
+    # tbin = np.linspace(-np.pi, np.pi, ntbin)
+    # # intiialize empty arrays for storing values and counter for normalizing
+    # wall, count = [np.zeros((R.time.size, ntbin, nrbin), dtype=np.float64) for _ in range(2)]
+
+    # # loop over x, y pairs
+    # for jx in range(nx):
+    #     for jy in range(ny):
+    #         # find nearest bin center for each r(jx,jy) and theta(jx,jy)
+    #         jr = abs(rbin - r.isel(x=jx,y=jy).values).argmin()
+    #         jt = abs(tbin - theta.isel(x=jx,y=jy).values).argmin()
+    #         for t in range(0, R.time.size):
+    #             w = R.w.isel(time=t, z=jz[t].astype(int))
+    #             # store w[jt,jr] in wall, increment count
+    #             wall[t,jt,jr] += w[jx,jy]
+    #             count[t,jt,jr] += 1
+    #             print(f"Finished timestep {t}")
+
+    # # set up dimensial array for wmean
+    # wmean = np.zeros((R.time.size, ntbin, nrbin))
+    # for t in range(R.time.size):
+    #     # normalize wall by count
+    #     wmean[t,:,:] = wall[t,:,:] / count[t,:,:]
+
+    # # convert polar Rww to xarray data array
+    # w_pol = xr.DataArray(data=wmean,
+    #                     coords=dict(time=R.time, theta=tbin, r=rbin),
+    #                     dims=["time", "theta", "r"])
+
+    # number of heights
+    nh, ntime = len(heights), df.time.size
+
     # calculate t'w'
     df["tw_cov_res"] = xr.cov(df.theta, df.w, dim=("x", "y")).compute()
     # calculate zi
     idx = df.tw_cov_res.argmin(axis=1)
-    jz = np.zeros(df.time.size)
-    for jt in range(0, df.time.size):
-        # find jz for defined z/zi
-        jz[jt] = abs(df.z/df.z[idx].isel(time=jt) - height).argmin()
+    jz = np.zeros((nh, ntime))
+    for jt in range(ntime):
+        for jh in range(nh):
+            # find jz for defined z/zi
+            jz[jh,jt] = abs(df.z/df.z[idx].isel(time=jt) - heights[jh]).argmin()
 
     # read in autocorrelation dataset
     R = xr.open_dataset(f"{dnc}R_2d.nc")
+    # grab sizes of x and y dimensions for looping
+    nx, ny = R.x.size, R.y.size
 
-    # average if desired
-    if avg_method == 1:
-        R = R.rolling(time=avg_time).mean()
-    if avg_method == 2:
-        R = R.coarsen(time=avg_time, boundary="trim").mean()
-    
     # calculate 2d arrays of theta=theta(x,y), r=r(x,y)
     theta = np.arctan2(R.y, R.x)
     r = (R.x**2. + R.y**2.) ** 0.5
-    # grab sizes of x and y dimensions for looping
-    nx, ny = R.x.size, R.y.size
+    # arrays for theta and r bins
     rbin = np.linspace(0, Lx//2, nrbin)
     tbin = np.linspace(-np.pi, np.pi, ntbin)
     # intiialize empty arrays for storing values and counter for normalizing
-    wall, count = [np.zeros((R.time.size, ntbin, nrbin), dtype=np.float64) for _ in range(2)]
+    wall, count = [np.zeros((ntime, ntbin, nrbin, nh), dtype=np.float64) for _ in range(2)]
 
-    # loop over x, y pairs
-    for jx in range(nx):
-        for jy in range(ny):
-            # find nearest bin center for each r(jx,jy) and theta(jx,jy)
-            jr = abs(rbin - r.isel(x=jx,y=jy).values).argmin()
-            jt = abs(tbin - theta.isel(x=jx,y=jy).values).argmin()
-            for t in range(0, R.time.size):
-                w = R.w.isel(time=t, z=jz[t].astype(int))
-                # store w[jt,jr] in wall, increment count
-                wall[t,jt,jr] += w[jx,jy]
-                count[t,jt,jr] += 1
-                print(f"Finished timestep {t}")
+    # loop over desired heights
+    for jh in range(nh):
+        # loop over x, y pairs
+        for jx in range(nx):
+            for jy in range(ny):
+                # find nearest bin center for each r(jx,jy) and theta(jx,jy)
+                jr = abs(rbin - r.isel(x=jx,y=jy).values).argmin()
+                jt = abs(tbin - theta.isel(x=jx,y=jy).values).argmin()
+                for t in range(ntime):
+                    w = R.w.isel(time=t, z=jz[jh,t].astype(int))
+                    # store w[jt,jr] in wall, increment count
+                    wall[t,jt,jr,jh] += w[jx,jy]
+                    count[t,jt,jr,jh] += 1
 
     # set up dimensial array for wmean
-    wmean = np.zeros((R.time.size, ntbin, nrbin))
-    for t in range(R.time.size):
-        # normalize wall by count
-        wmean[t,:,:] = wall[t,:,:] / count[t,:,:]
+    wmean = np.zeros((ntime, ntbin, nrbin, nh))
+    for jh in range(nh):
+        for t in range(ntime):
+            # normalize wall by count
+            wmean[t,:,:,jh] = wall[t,:,:,jh] / count[t,:,:,jh]
 
     # convert polar Rww to xarray data array
     w_pol = xr.DataArray(data=wmean,
-                        coords=dict(time=R.time, theta=tbin, r=rbin),
-                        dims=["time", "theta", "r"])
-    # set file path for output
-    if avg_method == 0:
-        dout = f"{dnc}R_pol_zzi{int(height*100)}.nc"
-    if avg_method == 1:
-        dout = f"{dnc}R_pol_zzi{int(height*100)}_rolling{avg_time}.nc"
-    if avg_method == 2:
-        dout = f"{dnc}R_pol_zzi{int(height*100)}_coarsen{avg_time}.nc"
+                        coords=dict(time=df.time, 
+                                    theta=tbin, 
+                                    r=rbin, 
+                                    height=heights),
+                        dims=["time", "theta", "r", "height"])
+
     # output polar Rww data
+    dout = f"{dnc}R_pol.nc"
     print(f"Saving to {dout}")
     w_pol.to_netcdf(dout)
     return
@@ -183,7 +226,7 @@ def polar_grid(df, dnc, height, Lx, ntbin, nrbin, avg_method, avg_time=6):
 # ---------------------------------
 # Calculate roll factor timeseries
 # --------------------------------- 
-def roll_factor(dnc, height, stats, avg_method, avg_time=6):
+def roll_factor(dnc, df, heights):
     """Calculate roll factor using polar grid autocorrelation of w
     
     :param Dataset stats: output from calc_stats_tran
@@ -193,46 +236,48 @@ def roll_factor(dnc, height, stats, avg_method, avg_time=6):
     :param int avg_time: number of timesteps to average over (6 step default)
     """
 
+    # calculate t'w'
+    df["tw_cov_res"] = xr.cov(df.theta, df.w, dim=("x", "y")).compute()
+    # calculate zi
+    idx = df.tw_cov_res.argmin(axis=1)
+
     # read in polar autocorrelation
-    if avg_method == 0:
-        w_pol = xr.open_dataarray(f"{dnc}R_pol_zzi{int(height*100)}.nc")
-    if avg_method == 1:
-        w_pol = xr.open_dataarray(f"{dnc}R_pol_zzi{int(height*100)}_rolling{avg_time}.nc")
-    if avg_method == 2:
-        w_pol = xr.open_dataarray(f"{dnc}R_pol_zzi{int(height*100)}_coarsen{avg_time}.nc")
+    w_pol = xr.open_dataarray(f"{dnc}R_pol.nc")
 
     # set parameters for calculation
     time = w_pol.time
-    theta = w_pol.theta
     r = w_pol.r
+    height = w_pol.height
+    # number of dims
+    ntime = time.size
+    nr = r.size
+    nh = height.size
 
     # set up dimensional arrays to store roll factor stats
-    Rmax_r = np.zeros((time.size, r.size))
-    rbin_zi = np.zeros((time.size, r.size))
-    RR = np.zeros((time.size))
+    Rmax_r = np.zeros((nh, ntime, nr))
+    rbin_zi = np.zeros((nh, ntime, nr))
+    RR = np.zeros((nh, ntime))
 
     print("Calculating roll factor")
     # set up dimensial array for wmean
     wmean = w_pol.values
-    # loop over time
-    for jt in range(0, time.size):
-        # calculate roll factor
-        Rmax_r[jt,:] = np.nanmax(wmean[jt,:,:], axis=0) - np.nanmin(wmean[jt,:,:], axis=0)
-        rbin_zi[jt,:] = r / stats.zi.isel(time=jt).values
-        RR[jt] = np.nanmax(Rmax_r[jt, rbin_zi[jt,:] >= 0.5])
+    # loop over heights
+    for jh in range(nh):
+        # loop over time
+        for jt in range(ntime):
+            # calculate roll factor
+            Rmax_r[jh,jt,:] = np.nanmax(wmean[jt,:,:,jh], axis=0) - np.nanmin(wmean[jt,:,:,jh], axis=0)
+            rbin_zi[jh,jt,:] = r / df.z[idx].isel(time=jt).values
+            RR[jh,jt] = np.nanmax(Rmax_r[jh,jt, rbin_zi[jh,jt,:] >= 0.5])
     print("Roll factor calculation complete!")
     # create xarray data array
     roll = xr.DataArray(data=RR,
-                        coords=dict(time=time),
-                        dims=["time"])
+                        coords=dict(height=height.values,
+                                    time=time),
+                        dims=["height", "time"])
     
     # save data
-    if avg_method == 0:
-        fsave = f"{dnc}rollfactor_zzi{int(height*100)}.nc"
-    if avg_method == 1:
-        fsave = f"{dnc}rollfactor_zzi{int(height*100)}_rolling{avg_time}.nc"
-    if avg_method == 2:
-        fsave = f"{dnc}rollfactor_zzi{int(height*100)}_coarsen{avg_time}.nc"
+    fsave = f"{dnc}rollfactor.nc"
 
     # output to netCDF
     print(f"Saving file: {fsave}")

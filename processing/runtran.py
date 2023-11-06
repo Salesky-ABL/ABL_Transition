@@ -41,12 +41,7 @@ dt = 1000
 # temporal resolution in seconds
 delta_t = 0.05
 # dimensionless height
-height = 0.10
-
-# averaging method (0 = none, 1 = rolling, 2 = coarsen)
-avg_method = 0
-# timesteps to average over
-avg_time = 6
+heights = [0.10, 0.25, 0.50]
 
 # flag to run sim2netcdf
 netcdf = False
@@ -59,11 +54,11 @@ autocorr = False
 # flag to convert to polar coordiantes
 polar = False
 # flag to calculate roll factor
-roll = False
+roll = True
+# flag to calculate rotated integral length scales
+length_rot = False
 # flag to calculate integral length scales
 length = False
-# flag to calculate rotated integral length scales
-length_rot = True
 
 # number of angular and radial bins (angular bins must be odd number)
 ntbin = 21
@@ -112,16 +107,16 @@ if polar:
     # load in volumetric output
     df = load_full(dnc, t0, t1, dt, delta_t)
     # rotate coordinates of autocorr
-    polar_grid(df, dnc, height, Lx, ntbin, nrbin, avg_method, avg_time)
+    polar_grid(df, dnc, heights, Lx, ntbin, nrbin)
     print("Finished polar_grid (finally)! \n")
 
 # roll_factor
 if roll:
     print("Begin roll factor...")
-    # load in volumetric output
-    stats = xr.open_dataset(f"{dnc}{t0}_{t1}_stats.nc")
+# load in volumetric output
+    df = load_full(dnc, t0, t1, dt, delta_t)
     # compute roll factor
-    roll_factor(dnc, height, stats, avg_method, avg_time)
+    roll_factor(dnc, df, heights)
     print("Finished roll_factor! \n")
 
 # length_scales
