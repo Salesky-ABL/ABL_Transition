@@ -47,6 +47,7 @@ def calc_stats_tran(dnc, t0, t1, dt, delta_t):
     # calculate means
     for s in base:
         dd_stat[f"{s}_mean"] = dd[s].mean(dim=("x", "y"))
+        dd_stat[s] = dd[s]
     # calculate covars
     with ProgressBar():
         # covariances
@@ -56,11 +57,6 @@ def calc_stats_tran(dnc, t0, t1, dt, delta_t):
         dd_stat["vw_cov_tot"] = dd_stat.vw_cov_res + dd.tyz.mean(dim=("x","y"))
         dd_stat["tw_cov_res"] = xr.cov(dd.theta, dd.w, dim=("x", "y")).compute()
         dd_stat["tw_cov_tot"] = dd_stat.tw_cov_res + dd.q3.mean(dim=("x","y")).compute()
-        # variances
-        dd_stat["uu_var"] = xr.cov(dd.u, dd.u, dim=("x", "y"))
-        dd_stat["vv_var"] = xr.cov(dd.v, dd.v, dim=("x", "y"))
-        dd_stat["ww_var"] = xr.cov(dd.w, dd.w, dim=("x", "y"))
-        dd_stat["tt_var"] = xr.cov(dd.theta, dd.theta, dim=("x", "y"))
         # ustar
         dd_stat["ustar"] = ((dd_stat.uw_cov_tot**2) + (dd_stat.vw_cov_tot**2))**0.25
         dd_stat["ustar0"] = dd_stat.ustar.isel(z=0).compute()
@@ -95,7 +91,7 @@ def calc_stats_tran(dnc, t0, t1, dt, delta_t):
     dd_stat.attrs["delta"] = (dd.dx * dd.dy * dd.dz) ** (1./3.)
 
     # Save output file
-    fsave = f"{dnc}{t0}_{t1}_stats.nc"
+    fsave = f"{dnc}{t0}_{t1}_stats2.nc"
     print(f"Saving file: {fsave}")
     with ProgressBar():
         dd_stat.to_netcdf(fsave, mode="w")

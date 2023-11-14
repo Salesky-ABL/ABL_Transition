@@ -18,7 +18,7 @@ from tranutils import calc_stats_tran, polar_grid, roll_factor, length_scales, l
 # --------------------------------- 
 
 # label for simulation files
-simlabel = "full_step_15"
+simlabel = "full_step_12"
 # directory for raw simulation output
 dout = f"/home/rfrost/simulations/abl_transition/{simlabel}/output/"
 # directory for netCDF files to be read then saved
@@ -48,13 +48,13 @@ netcdf = False
 # rotate or not
 rotate = False
 # flag to run calc_stats_tran
-stats = False
+stats = True
 # flag to calculate 2D autocorrelation or not
 autocorr = False
 # flag to convert to polar coordiantes
 polar = False
 # flag to calculate roll factor
-roll = True
+roll = False
 # flag to calculate rotated integral length scales
 length_rot = False
 # flag to calculate integral length scales
