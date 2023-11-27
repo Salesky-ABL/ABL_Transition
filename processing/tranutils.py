@@ -13,6 +13,17 @@ import numpy as np
 from dask.diagnostics import ProgressBar
 
 # ---------------------------------
+# plotting functions
+# --------------------------------- 
+def rasterize(cf):
+    """Rasterize a matplotlib.ContourSet object (contour fill plot)
+
+    :param ContourSet cf: ContourSet object from plt.contourf function
+    """
+    for collection in cf.collections:
+        collection.set_rasterized(True)
+
+# ---------------------------------
 # Calculate statistics
 # --------------------------------- 
 def calc_stats_tran(dnc, t0, t1, dt, delta_t):
