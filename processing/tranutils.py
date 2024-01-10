@@ -68,6 +68,7 @@ def calc_stats_tran(dnc, t0, t1, dt, delta_t):
         dd_stat["vw_cov_tot"] = dd_stat.vw_cov_res + dd.tyz.mean(dim=("x","y"))
         dd_stat["tw_cov_res"] = xr.cov(dd.theta, dd.w, dim=("x", "y")).compute()
         dd_stat["tw_cov_tot"] = dd_stat.tw_cov_res + dd.q3.mean(dim=("x","y")).compute()
+        dd_stat["q3"] = dd.q3
         # ustar
         dd_stat["ustar"] = ((dd_stat.uw_cov_tot**2) + (dd_stat.vw_cov_tot**2))**0.25
         dd_stat["ustar0"] = dd_stat.ustar.isel(z=0).compute()
@@ -122,51 +123,6 @@ def polar_grid(df, dnc, heights, Lx, ntbin, nrbin):
     :param int ntbin: number of angular bins
     :param int nrbin: number of radial bins
     """
-    # # calculate t'w'
-    # df["tw_cov_res"] = xr.cov(df.theta, df.w, dim=("x", "y")).compute()
-    # # calculate zi
-    # idx = df.tw_cov_res.argmin(axis=1)
-    # jz = np.zeros(df.time.size)
-    # for jt in range(0, df.time.size):
-    #     # find jz for defined z/zi
-    #     jz[jt] = abs(df.z/df.z[idx].isel(time=jt) - height).argmin()
-
-    # # read in autocorrelation dataset
-    # R = xr.open_dataset(f"{dnc}R_2d.nc")
-    
-    # # calculate 2d arrays of theta=theta(x,y), r=r(x,y)
-    # theta = np.arctan2(R.y, R.x)
-    # r = (R.x**2. + R.y**2.) ** 0.5
-    # # grab sizes of x and y dimensions for looping
-    # nx, ny = R.x.size, R.y.size
-    # rbin = np.linspace(0, Lx//2, nrbin)
-    # tbin = np.linspace(-np.pi, np.pi, ntbin)
-    # # intiialize empty arrays for storing values and counter for normalizing
-    # wall, count = [np.zeros((R.time.size, ntbin, nrbin), dtype=np.float64) for _ in range(2)]
-
-    # # loop over x, y pairs
-    # for jx in range(nx):
-    #     for jy in range(ny):
-    #         # find nearest bin center for each r(jx,jy) and theta(jx,jy)
-    #         jr = abs(rbin - r.isel(x=jx,y=jy).values).argmin()
-    #         jt = abs(tbin - theta.isel(x=jx,y=jy).values).argmin()
-    #         for t in range(0, R.time.size):
-    #             w = R.w.isel(time=t, z=jz[t].astype(int))
-    #             # store w[jt,jr] in wall, increment count
-    #             wall[t,jt,jr] += w[jx,jy]
-    #             count[t,jt,jr] += 1
-    #             print(f"Finished timestep {t}")
-
-    # # set up dimensial array for wmean
-    # wmean = np.zeros((R.time.size, ntbin, nrbin))
-    # for t in range(R.time.size):
-    #     # normalize wall by count
-    #     wmean[t,:,:] = wall[t,:,:] / count[t,:,:]
-
-    # # convert polar Rww to xarray data array
-    # w_pol = xr.DataArray(data=wmean,
-    #                     coords=dict(time=R.time, theta=tbin, r=rbin),
-    #                     dims=["time", "theta", "r"])
 
     # number of heights
     nh, ntime = len(heights), df.time.size
