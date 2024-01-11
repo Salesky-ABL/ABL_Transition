@@ -103,7 +103,7 @@ def calc_stats_tran(dnc, t0, t1, dt, delta_t):
     dd_stat.attrs["delta"] = (dd.dx * dd.dy * dd.dz) ** (1./3.)
 
     # Save output file
-    fsave = f"{dnc}{t0}_{t1}_stats2.nc"
+    fsave = f"{dnc}{t0}_{t1}_stats.nc"
     print(f"Saving file: {fsave}")
     with ProgressBar():
         dd_stat.to_netcdf(fsave, mode="w")
