@@ -26,7 +26,7 @@ def rasterize(cf):
 # ---------------------------------
 # Calculate statistics
 # --------------------------------- 
-def calc_stats_tran(dnc, t0, t1, dt, delta_t):
+def calc_stats_tran(dnc, t0, t1, dt, delta_t, zi_mode):
     """Calculate statistics timeseries using netCDF simulation output from sim2netcdf
 
     :param str dnc: absolute path to directory for saving output netCDF files
@@ -34,6 +34,7 @@ def calc_stats_tran(dnc, t0, t1, dt, delta_t):
     :param int t1: final timestep for stats to be computed
     :param int dt: number of timesteps between files to load
     :param float delta_t: dimensional timestep in simulation (seconds)
+    :param float zi_mode: 0 for minima in heat flux, 1 for maxima in vertical potential temperature gradient
     """
     # directories and configuration
     timesteps = np.arange(t0, t1+1, dt, dtype=np.int32)
@@ -73,8 +74,12 @@ def calc_stats_tran(dnc, t0, t1, dt, delta_t):
         dd_stat["ustar"] = ((dd_stat.uw_cov_tot**2) + (dd_stat.vw_cov_tot**2))**0.25
         dd_stat["ustar0"] = dd_stat.ustar.isel(z=0).compute()
         # zi
-        idx = dd_stat.tw_cov_res.argmin(axis=1)
-        dd_stat["zi"] = dd_stat.z[idx]
+        if zi_mode == 0:
+            idx = dd_stat.tw_cov_res.argmin(axis=1)
+            dd_stat["zi"] = dd_stat.z[idx]
+        if zi_mode == 1:
+            idx = dd_stat.theta_mean.differentiate(coord="z").argmax(axis=1)
+            dd_stat["zi"] = dd_stat.z[idx]
         # L
         dd_stat["theta_mean"] = dd.theta.mean(dim=("x","y")).compute()
         dd_stat["L"] = -1*(dd_stat.ustar0**3) * dd_stat.theta_mean.isel(z=0) / (.4 * 9.81 * dd_stat.tw_cov_tot.isel(z=0))

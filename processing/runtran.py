@@ -18,7 +18,7 @@ from tranutils import calc_stats_tran, polar_grid, roll_factor, length_scales, l
 # --------------------------------- 
 
 # label for simulation files
-simlabel = "full_step_15"
+simlabel = "sinusoidal"
 # directory for raw simulation output
 dout = f"/home/rfrost/simulations/abl_transition/{simlabel}/output/"
 # directory for netCDF files to be read then saved
@@ -44,19 +44,21 @@ delta_t = 0.05
 heights = [0.10, 0.25, 0.50]
 
 # flag to run sim2netcdf
-netcdf = False
+netcdf = True
 # rotate or not
-rotate = False
+rotate = True
 # flag to run calc_stats_tran
-stats = True
+stats = False
+# flag for zi calculation method (0=heat flux method, 1=theta gradient method)
+zi_mode = 1
 # flag to calculate 2D autocorrelation or not
-autocorr = False
+autocorr = True
 # flag to convert to polar coordiantes
 polar = False
 # flag to calculate roll factor
 roll = False
 # flag to calculate rotated integral length scales
-length_rot = False
+length_rot = True
 # flag to calculate integral length scales
 length = False
 
@@ -84,7 +86,7 @@ if rotate:
 # calc_stats_tran
 if stats:
     print("Begin calc_stats_tran...")
-    calc_stats_tran(dnc, t0, t1, dt, delta_t)
+    calc_stats_tran(dnc, t0, t1, dt, delta_t, zi_mode)
     print("Finished calc_stats_tran! \n")
 
 # autocorr_2d
