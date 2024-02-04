@@ -430,3 +430,28 @@ def ls_rot(dnc, t0, t1, dt):
     fsave = f"{dnc}{t0}_{t1}_length_scale_rot.nc"
     Lw.to_netcdf(fsave, mode="w")
     return
+
+# ---------------------------------
+# Add new statistic to stats
+# ---------------------------------
+def add_stat(dnc, t0, t1):
+    """Calculate new statistic and add to stats.nc file. Only to be used
+    for testing, intentionally not added to runtran.py
+
+    :param str dnc: absolute path to directory for saving/writing netCDF files
+    :param int t0: first timestep for stats to be computed
+    :param int t1: final timestep for stats to be computed
+    :param int dt: number of timesteps between files to load
+    """
+    # read in current stats file
+    fstat = f"{dnc}{t0}_{t1}_stats.nc"
+    ds = xr.open_dataset(fstat)
+
+    # calculate vertical vorticity
+    ds["zeta"] = ds.v.differentiate(coord="x") - ds.u.differentiate(coord="y")
+
+    fstat_new = f"{dnc}{t0}_{t1}_stats_new.nc"
+    print(f"Saving file: {fstat_new}")
+    with ProgressBar():
+        ds.to_netcdf(f"{fstat_new}", mode="w")
+    print("Finished!")
