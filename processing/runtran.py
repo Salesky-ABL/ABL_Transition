@@ -12,13 +12,13 @@ sys.path.append("/home/rfrost/LES-utils/")
 import xarray as xr
 from spec import autocorr_2d
 from LESutils import sim2netcdf, load_full, nc_rotate
-from tranutils import calc_stats_tran, polar_grid, roll_factor, length_scales, ls_rot
+from tranutils import calc_stats_tran, polar_grid, roll_factor, length_scales, ls_rot, calc_vorticity
 # ---------------------------------
 # Parameters for script
 # --------------------------------- 
 
 # label for simulation files
-simlabel = "sinusoidal"
+simlabel = "full_step_6"
 # directory for raw simulation output
 dout = f"/home/rfrost/simulations/abl_transition/{simlabel}/output/"
 # directory for netCDF files to be read then saved
@@ -44,21 +44,23 @@ delta_t = 0.05
 heights = [0.10, 0.25, 0.50]
 
 # flag to run sim2netcdf
-netcdf = True
+netcdf = False
 # rotate or not
-rotate = True
+rotate = False
 # flag to run calc_stats_tran
 stats = False
+# flag to calculate vorticity fields
+vort = True
 # flag for zi calculation method (0=heat flux method, 1=theta gradient method)
 zi_mode = 1
 # flag to calculate 2D autocorrelation or not
-autocorr = True
+autocorr = False
 # flag to convert to polar coordiantes
 polar = False
 # flag to calculate roll factor
 roll = False
 # flag to calculate rotated integral length scales
-length_rot = True
+length_rot = False
 # flag to calculate integral length scales
 length = False
 
@@ -88,6 +90,12 @@ if stats:
     print("Begin calc_stats_tran...")
     calc_stats_tran(dnc, t0, t1, dt, delta_t, zi_mode)
     print("Finished calc_stats_tran! \n")
+
+# vorticity calculation
+if vort:
+    print("Begin calc_vorticity...")
+    calc_vorticity(dnc, t0, t1, dt, delta_t)
+    print("Finished calc_vorticity! \n")
 
 # autocorr_2d
 if autocorr:
@@ -121,11 +129,11 @@ if roll:
     roll_factor(dnc, df, heights)
     print("Finished roll_factor! \n")
 
-# length_scales
-if length:
-    print("Begin length_scales...")
-    length_scales(dnc, t0, t1, dt, height, avg_method, avg_time)
-    print("Finished lenght_scales! \n")
+# # length_scales
+# if length:
+#     print("Begin length_scales...")
+#     length_scales(dnc, t0, t1, dt, height, avg_method, avg_time)
+#     print("Finished lenght_scales! \n")
 
 # ls_rot
 if length_rot:

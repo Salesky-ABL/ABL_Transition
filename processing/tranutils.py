@@ -116,6 +116,52 @@ def calc_stats_tran(dnc, t0, t1, dt, delta_t, zi_mode):
     return
 
 # ---------------------------------
+# Calculate the vorticity terms
+# ---------------------------------
+def calc_vorticity(dnc, t0, t1, dt, delta_t):
+    """Calculate statistics timeseries using netCDF simulation output from sim2netcdf
+
+    :param str dnc: absolute path to directory for saving output netCDF files
+    :param int t0: first timestep for stats to be computed
+    :param int t1: final timestep for stats to be computed
+    :param int dt: number of timesteps between files to load
+    :param float delta_t: dimensional timestep in simulation (seconds)
+    """
+    # directories and configuration
+    timesteps = np.arange(t0, t1+1, dt, dtype=np.int32)
+    # determine files to read from timesteps
+    fall = [f"{dnc}all_{tt:07d}.nc" for tt in timesteps]
+    nf = len(fall)
+    # calculate array of times represented by each file
+    times = np.array([i*delta_t*dt for i in range(nf)])
+
+    # Load files and clean up
+    print("Reading files...")
+    dd = xr.open_mfdataset(fall, combine="nested", concat_dim="time")
+    dd.coords["time"] = times
+    dd.time.attrs["units"] = "s"
+
+    # Calculate statistics
+    print("Beginning calculations")
+    # create empty dataset that will hold everything
+    dd_stat = xr.Dataset()
+    # calculate vertical vorticity
+    dd_stat["zeta3"] = dd_stat.v.differentiate(coord="x") - dd_stat.u.differentiate(coord="y")
+
+    # Add attributes
+    # copy from dd
+    dd_stat.attrs = dd.attrs
+    dd_stat.attrs["delta"] = (dd.dx * dd.dy * dd.dz) ** (1./3.)
+
+    # Save output file
+    fsave = f"{dnc}{t0}_{t1}_vorticity.nc"
+    print(f"Saving file: {fsave}")
+    with ProgressBar():
+        dd_stat.to_netcdf(fsave, mode="w")
+    print("Finished!")
+    return
+    
+# ---------------------------------
 # Convert to polar coords
 # --------------------------------- 
 def polar_grid(df, dnc, heights, Lx, ntbin, nrbin):
