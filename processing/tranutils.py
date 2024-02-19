@@ -145,8 +145,24 @@ def calc_vorticity(dnc, t0, t1, dt, delta_t):
     print("Beginning calculations")
     # create empty dataset that will hold everything
     dd_stat = xr.Dataset()
-    # calculate vertical vorticity
-    dd_stat["zeta3"] = dd_stat.v.differentiate(coord="x") - dd_stat.u.differentiate(coord="y")
+
+    with ProgressBar():
+        # calculate horizontal vorticity
+        dd_stat["zeta1"] = dd.w.differentiate(coord="y") - dd.v.differentiate(coord="z")
+        dd_stat["zeta2"] = dd.w.differentiate(coord="x") - dd.u.differentiate(coord="z")
+        # calculate vertical vorticity
+        dd_stat["zeta3"] = dd.v.differentiate(coord="x") - dd.u.differentiate(coord="y")
+
+        # vorticity averages
+        dd_stat["zeta1_abs"] = abs(dd_stat.zeta1)
+        dd_stat["zeta1_abs_mean"] = dd_stat.zeta1_abs.mean(dim=("x","y"))
+        dd_stat["zeta2_abs"] = abs(dd_stat.zeta2)
+        dd_stat["zeta2_abs_mean"] = dd_stat.zeta2_abs.mean(dim=("x","y"))
+        dd_stat["zeta3_abs"] = abs(dd_stat.zeta3)
+        dd_stat["zeta3_abs_mean"] = dd_stat.zeta3_abs.mean(dim=("x","y"))
+        # positive vertical vorticity
+        dd_stat["zeta3_pos"] = dd_stat.zeta3.where(dd_stat.zeta3 > 0, drop=True)
+        dd_stat["zeta3_pos_mean"] = dd_stat.zeta3_pos.mean(dim=("x","y"))
 
     # Add attributes
     # copy from dd
@@ -159,6 +175,7 @@ def calc_vorticity(dnc, t0, t1, dt, delta_t):
     with ProgressBar():
         dd_stat.to_netcdf(fsave, mode="w")
     print("Finished!")
+    
     return
     
 # ---------------------------------

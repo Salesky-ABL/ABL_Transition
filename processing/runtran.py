@@ -18,7 +18,7 @@ from tranutils import calc_stats_tran, polar_grid, roll_factor, length_scales, l
 # --------------------------------- 
 
 # label for simulation files
-simlabel = "full_step_6"
+simlabel = "full_step_12"
 # directory for raw simulation output
 dout = f"/home/rfrost/simulations/abl_transition/{simlabel}/output/"
 # directory for netCDF files to be read then saved
