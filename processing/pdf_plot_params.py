@@ -49,6 +49,7 @@ bin_width_stat, bin_width_highq0, bin_width_lowq0 = [], [], []
 bin_edges_stat, bin_edges_highq0, bin_edges_lowq0 = [], [], []
 prob_stat, prob_highq0, prob_lowq0 = [], [], []
 
+print("Beginning PDF calculations.")
 for i, v in enumerate(vort_all):
     # Extract and flatten the data
     data_stat = v.zeta3[:144,:,:,h_idx].mean(dim="time").values.flatten()
@@ -83,6 +84,8 @@ bin_width_stat = np.array(bin_width_stat)
 bin_width_highq0 = np.array(bin_width_highq0)
 bin_width_lowq0 = np.array(bin_width_lowq0)
 
+print("All done! Creating a Dataset now.")
+
 # Create xarray Dataset
 ds = xr.Dataset(
     {
@@ -106,4 +109,6 @@ ds = xr.Dataset(
 
 # Save Dataset to NetCDF file
 fsave = f"{dnc}{t0}_{t1}_vort_pdf_plot_params_{int(vort_all[0].z[h_idx])}m.nc"
+print(f"Saving to {fsave}")
 ds.to_netcdf(fsave)
+print("All done! Script Complete.")
