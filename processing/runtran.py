@@ -18,15 +18,16 @@ from tranutils import calc_stats_tran, polar_grid, roll_factor, length_scales, l
 # --------------------------------- 
 
 # label for simulation files
-simlabel = "u01_q24_256"
+simlabel = "full_step_15"
 # directory for raw simulation output
-dout = f"/share/yeti/simulations/cbl/{simlabel}/output/"
+dout = f"/home/rfrost/simulations/nc/{simlabel}"
+# dout = f"/share/yeti/simulations/cbl/{simlabel}/output/"
 # directory for netCDF files to be read then saved
-dnc = f"/home/rfrost/simulations/nc/vorticity/{simlabel}/"
+dnc = f"/home/rfrost/simulations/nc/{simlabel}/"
 # simulation resolution
-nx = 256
-ny = 256
-nz = 256
+nx = 160
+ny = 160
+nz = 160
 # domain size in meters
 Lx = 12000
 Ly = 12000
