@@ -9,7 +9,7 @@
 # imports
 import xarray as xr
 import numpy as np
-
+# ------------------------------------------------
 # settings
 dnc = f"/home/rfrost/simulations/nc/"
 # list of simulations to analyze
@@ -22,7 +22,7 @@ t0hr = t0 * 0.05 / 3600
 t1hr = t1 * 0.05 / 3600
 # height index
 h_idx = 0
-
+# ------------------------------------------------
 # code begins
 vort_all = []
 heights = []
